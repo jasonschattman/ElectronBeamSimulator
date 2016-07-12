@@ -1,4 +1,4 @@
-This Python application simulates an electron beam that's accelerating towards a large positive charge (the "anode") while being deflected by a small charged particle (called the deflector particle) that the user can drag around with the mouse.  
+This Python application simulates an electron beam that's accelerating towards a large positive charge (the "anode") while being deflected by a small charged particle (called the deflector particle) that the user can drag around with the mouse.  It's coded using plain procedures and arrays so that anyone who's taken ICS3UI can understand the code.
 
 The physics behind the program is based on Coloumb's Law and Newton's Laws.  
 
