@@ -18,21 +18,57 @@ screen = Canvas( root, width = 1200, height = 900, background = "black" )
 H = ["0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F"]  #hexadecimal array used for colouring
 
 def mouseClicked( event ):
-    global mouseDown
+    global mouseDown, xMouse, yMouse, deflectorBeingDragged, anodeBeingDragged, cathodeBeingDragged
     mouseDown = True
+    xMouse = event.x
+    yMouse = event.y
+
+    #For dragging the deflector
+    if getDistance(xMouse, yMouse, xDeflector, yDeflector) <= deflectorRadius:
+          deflectorBeingDragged = True
+          anodeBeingDragged = False
+          cathodeBeingDragged = False
+          
+    #For dragging the anode
+    elif getDistance(xMouse, yMouse, xAnode, yAnode) <= anodeRadius:
+          deflectorBeingDragged = False
+          anodeBeingDragged = True
+          cathodeBeingDragged = False
+
+    #For dragging the cathode
+    elif getDistance(xMouse, yMouse, xCathode, yCathode) <= cathodeRadius:
+          deflectorBeingDragged = False
+          anodeBeingDragged = False
+          cathodeBeingDragged = True
     
 
 def mouseReleased( event ):
-    global mouseDown
+    global mouseDown, deflectorBeingDragged, anodeBeingDragged, cathodeBeingDragged
+    
     mouseDown = False
- 
+    deflectorBeingDragged = False
+    anodeBeingDragged = False
+    cathodeBeingDragged = False
+    
 
 def mouseMoved( event ):
-    global xMouse, yMouse
+    global xMouse, yMouse, xDeflector, yDeflector, xAnode, yAnode, xCathode, yCathode
+    
+    xMouse = event.x
+    yMouse = event.y
     
     if mouseDown == True:
-            xMouse = event.x
-            yMouse = event.y
+          if deflectorBeingDragged == True:
+                xDeflector = xMouse
+                yDeflector = yMouse
+                
+          elif anodeBeingDragged == True:
+                xAnode = xMouse
+                yAnode = yMouse
+                
+          elif cathodeBeingDragged == True:
+                xCathode = xMouse
+                yCathode = yMouse           
 
 
 #Converts decimal number x to hexadecimal. Used for colouring
@@ -109,20 +145,23 @@ def getParticleColour( currentCharge, maxMagnitude ):
 #Sets constants at the start of the program
 def setInitialValues():
     global deflectorChargeImageFile, electronImageFile, xDeflector, yDeflector, xMouse, yMouse, maxSpeedDeflector, speedElectrons
-    global gameRunning, xCathode, yCathode, xAnode, yAnode
-    global electronMass, anodeRadius, xDeflector, yDeflector, xMouse, yMouse
-    global yElectronSpeed, electronImage, mouseDown, deflectorSign1, deflectorSign2, anodeSquaredRadius
+    global gameRunning, xCathode, yCathode, xAnode, yAnode, cathodeRadius
+    global electronMass, anodeRadius, xDeflector, yDeflector, xMouse, yMouse, deflectorRadius
+    global yElectronSpeed, electronImage, mouseDown, deflectorSign1, deflectorSign2, anodeSquaredRadius, beamOn
 
+    beamOn = True
     mouseDown = False
     xCathode = 600
     yCathode = 100
     xAnode = 600
     yAnode = 700
-    anodeRadius = 100
-    anodeSquaredRadius = anodeRadius**2
-    electronMass = 1
     xDeflector = 500
     yDeflector = 300
+    cathodeRadius = 20
+    anodeRadius = 100
+    deflectorRadius = 12
+    anodeSquaredRadius = anodeRadius**2
+    electronMass = 1
     xMouse = xDeflector  
     yMouse = yDeflector
     deflectorSign1 = 0
@@ -134,18 +173,25 @@ def setInitialValues():
 
 #Resets user values whenever a slider bar is adjusted
 def resetUserValues(x):
-    global anodeCharge, deflectorCharge, releaseInterval, deflectorColour, anodeColour
+    global anodeCharge, deflectorCharge, releaseInterval, anodeRadius, deflectorColour, anodeColour, beamOn
     
-    anodeCharge = int(anodeChargeSlider.get())
-    deflectorCharge = int(deflectorChargeSlider.get())
-    beamDensity = int(beamDensitySlider.get() ) #1-10
-    releaseInterval = min(11, max(2, 12 - beamDensity))
+    anodeCharge = int(anodeChargeSlider.get()) #gets the anode charge value from the slider
+    deflectorCharge = int(deflectorChargeSlider.get()) #etc.
+    electronFlowRate = int(electronFlowRateSlider.get() )
 
-    anodeColour = getParticleColour( anodeCharge, 50000 )
-    deflectorColour = getParticleColour( deflectorCharge, 1000 )
+    if electronFlowRate > 0:
+          releaseInterval = 1/electronFlowRate  #the number of seconds between each release of a new electron
+          beamOn = True
+    else:
+          beamOn = False
+          
+    anodeRadius = int(anodeSizeSlider.get())
+
+    anodeColour = getParticleColour( anodeCharge, 50000 ) #set to some shade of green based on the charge
+    deflectorColour = getParticleColour( deflectorCharge, 1000 )  #set to some shade of yellow-green based on the charge
     
 
-#Creates a new electron at the cathode.  Called in each frame of the animation.
+#Creates a new electron at the cathode.  Called whenever a new electron is "due" to begin.
 def spawnNewElectron():
       xElectron.append(xCathode)
       yElectron.append(yCathode)
@@ -154,7 +200,7 @@ def spawnNewElectron():
       electronImage.append(0)
 
 
-#Deletes an electron when it comes close to the anode
+#Deletes an electron.  Gets called when electron i comes close to the anode or flies so far off screen that it will likely never return
 def deleteElectron(i):
       xElectron.pop(i)
       yElectron.pop(i)
@@ -212,8 +258,9 @@ def updateElectronPositions():
             xElectron[i] = xElectron[i] + xElectronSpeed[i] 
             yElectron[i] = yElectron[i] + yElectronSpeed[i]
 
-            #Delete the electron if it has gotten sufficiently close to the anode 
-            if squaredDistFromAnode < anodeSquaredRadius:
+            #Delete the electron if it has gotten sufficiently close to the anode
+            #or has flown so far off screen that it will likely never come back
+            if distFromAnode < anodeRadius or distFromAnode > 1200:
                   deleteElectron(i)  #results in electrons i+1 up through n-1 being shifted one index down, so that i does not need to be incremented in order
                                                #to get to the next electron in the list
             else:
@@ -242,15 +289,18 @@ def getSignGreyScale( charge, maxCharge ):
 def drawDeflector():
     global deflectorChargeImage, deflectorSign1, deflectorSign2
 
-    deflectorChargeImage = screen.create_oval( xDeflector-12, yDeflector-12, xDeflector + 12, yDeflector + 12, fill = deflectorColour )
+    r = deflectorRadius
+    r2 = r/2
+
+    deflectorChargeImage = screen.create_oval( xDeflector-r, yDeflector-r, xDeflector + r, yDeflector + r, fill = deflectorColour )
     greyScale = getSignGreyScale( deflectorCharge, 1000 )
-    
+
     if deflectorCharge < 0:
-          deflectorSign1 = screen.create_line( xDeflector-6, yDeflector, xDeflector + 6, yDeflector, fill = greyScale, width = 1)
+          deflectorSign1 = screen.create_line( xDeflector - r2, yDeflector, xDeflector + r2, yDeflector, fill = greyScale, width = 1)
 
     elif deflectorCharge > 0:
-          deflectorSign1 = screen.create_line( xDeflector-6, yDeflector, xDeflector + 6, yDeflector, fill = greyScale, width = 1)
-          deflectorSign2 = screen.create_line( xDeflector, yDeflector-6, xDeflector, yDeflector + 6, fill = greyScale, width = 1)
+          deflectorSign1 = screen.create_line( xDeflector - r2, yDeflector, xDeflector + r2, yDeflector, fill = greyScale, width = 1)
+          deflectorSign2 = screen.create_line( xDeflector, yDeflector - r2, xDeflector, yDeflector + r2, fill = greyScale, width = 1)
 
 
 #Draws all the electrons on screen.
@@ -265,7 +315,7 @@ def drawElectrons():
 def drawCathodeAndAnode():
     global cathodeImage, anodeImage, anodeSignImage1,  anodeSignImage2
     
-    cathodeImage = screen.create_oval(xCathode-10, yCathode-10, xCathode+10, yCathode+10, fill="green")
+    cathodeImage = screen.create_rectangle(xCathode-cathodeRadius, yCathode-cathodeRadius, xCathode+cathodeRadius, yCathode+cathodeRadius, fill="yellow")
     anodeImage = screen.create_oval(xAnode-anodeRadius, yAnode-anodeRadius, xAnode+anodeRadius, yAnode+anodeRadius, fill=anodeColour)
 
     greyScale = getSignGreyScale( anodeCharge, 50000 )    
@@ -299,16 +349,10 @@ def resetElectrons():
 #Main procedure.  Runs the animation as an infinite loop
 def runGame():
 
-    f = 0  #frame counter
+    timeStart = time()
 
     while True:
-          
-        if f % releaseInterval == 0 and len( xElectron ) < 500:  #releases a new electron every releaseInterval frames
-            spawnNewElectron()
-              
-        updateDeflectorPosition()
-        updateElectronPositions()
-        
+        updateElectronPositions()        
         drawCathodeAndAnode()
         drawDeflector()
         drawElectrons()
@@ -317,12 +361,18 @@ def runGame():
         sleep(0.01)
         deleteImages()
 
-        f = f + 1
+        #This block of code determines whether or not to release a new electron during this frame of the animation.
+        timeSinceLastElectronReleased = time() - timeStart
+        
+        if beamOn == True and len(xElectron) < 1000:  #if the electron flow rate is not 0 and there are fewer than 1000 electrons already on screen. 
+              if timeSinceLastElectronReleased >= releaseInterval :  #if enough time has passed since the last electron was released, release the next one
+                    spawnNewElectron()
+                    timeStart = time()  #reset the timer
 
 
 #Creates the slider bars and buttons when the program loads
 def buildGUI():
-      global anodeChargeSlider, deflectorChargeSlider, beamDensitySlider
+      global anodeChargeSlider, deflectorChargeSlider, electronFlowRateSlider, anodeSizeSlider
       
       anodeChargeLabel = Label(root, text = "Anode charge", font = "fixedsys 15", foreground="yellow", background="slate grey")
       anodeChargeLabel.place( x = 10, y = 30)
@@ -333,21 +383,28 @@ def buildGUI():
 
       deflectorChargeLabel = Label(root, text = "Deflector charge", font = "fixedsys 15", foreground="yellow", background="slate grey")
       deflectorChargeLabel.place( x = 10, y = 80)
-      deflectorChargeSlider = Scale( root, from_ = -1000, to=1000, orient=HORIZONTAL, command = resetUserValues, length=150, width = 10, resolution = 20 )
+      deflectorChargeSlider = Scale( root, from_ = -1000, to=1000, orient=HORIZONTAL, command = resetUserValues, length=150, width = 10, resolution = 50 )
       deflectorChargeSlider.pack()
-      deflectorChargeSlider.place( x = 140, y = 80)
+      deflectorChargeSlider.place( x = 138, y = 80)
       deflectorChargeSlider.set( -400) 
 
-      beamDensityLabel = Label(root, text = "Beam density", font = "fixedsys 15", foreground="yellow", background="slate grey")
-      beamDensityLabel.place( x = 10, y = 130)
-      beamDensitySlider = Scale( root, from_ = 1, to=10, orient=HORIZONTAL, command = resetUserValues, length=100, width=10  )
-      beamDensitySlider.pack()
-      beamDensitySlider.place( x = 120, y = 130 )
-      beamDensitySlider.set( 5 )
+      electronFlowRateLabel = Label(root, text = "Electron flow rate", font = "fixedsys 15", foreground="yellow", background="slate grey")
+      electronFlowRateLabel.place( x = 10, y = 130)
+      electronFlowRateSlider = Scale( root, from_ = 0, to=20, orient=HORIZONTAL, command = resetUserValues, length=100, width=10  )
+      electronFlowRateSlider.pack()
+      electronFlowRateSlider.place( x = 145, y = 130 )
+      electronFlowRateSlider.set( 5 )
+
+      anodeSizeLabel = Label(root, text = "Anode size", font = "fixedsys 15", foreground="yellow", background="slate grey")
+      anodeSizeLabel.place( x = 10, y = 180)
+      anodeSizeSlider = Scale( root, from_ = 10, to=150, orient=HORIZONTAL, command = resetUserValues, length=100, width = 10, resolution = 5  )
+      anodeSizeSlider.pack()
+      anodeSizeSlider.place( x = 100, y = 180 )
+      anodeSizeSlider.set( 80 )
 
       clearElectronsButton = Button(root, text="Clear Electrons", command = clearElectronsButtonPressed)
       clearElectronsButton.pack()
-      clearElectronsButton.place( x = 10, y = 180, width = 110 )
+      clearElectronsButton.place( x = 10, y = 230, width = 110 )
 
 
 #Called when the user clicks "Clear Electrons"
