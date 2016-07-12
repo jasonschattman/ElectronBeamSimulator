@@ -15,6 +15,6 @@ Using a button, you can also clear all electrons from the screen.  This option i
 
 By setting the options in clever ways, you can create some amazing looping patterns, whereby the electrons go into funny-shaped orbits around the anode and deflector particle, like a juggler juggling 1000 balls at once.  
 
-Once you've got a cool pattern going, try nudging one of the settings just a tiny bit (e.g. increase the anode charge by 1000) and watch the whole pattern collapse, then slowly settle into a totally new pattern!
+Once you've got a stable orbital pattern going, try nudging one of the settings just a tiny bit (e.g. increase the anode charge by 1000) and watch the whole pattern collapse, then slowly settle into a totally new pattern!
 
 
