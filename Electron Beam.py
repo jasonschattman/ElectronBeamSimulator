@@ -148,9 +148,12 @@ def setInitialValues():
     global gameRunning, xCathode, yCathode, xAnode, yAnode, cathodeRadius
     global electronMass, anodeRadius, xDeflector, yDeflector, xMouse, yMouse, deflectorRadius
     global yElectronSpeed, electronImage, mouseDown, deflectorSign1, deflectorSign2, anodeSquaredRadius, beamOn
+    global paused, showGrid, gridLines
 
     beamOn = True
     mouseDown = False
+    paused = False
+    showGrid = True
     xCathode = 600
     yCathode = 100
     xAnode = 600
@@ -166,6 +169,10 @@ def setInitialValues():
     yMouse = yDeflector
     deflectorSign1 = 0
     deflectorSign2 = 0
+    
+    gridLines = []
+    for i in range(50):
+        gridLines.append(0)
    
     resetElectrons()
     resetUserValues(1)
@@ -177,7 +184,7 @@ def resetUserValues(x):
     
     anodeCharge = int(anodeChargeSlider.get()) #gets the anode charge value from the slider
     deflectorCharge = int(deflectorChargeSlider.get()) #etc.
-    electronFlowRate = int(electronFlowRateSlider.get() )
+    electronFlowRate = float(electronFlowRateSlider.get() )
 
     if electronFlowRate > 0:
           releaseInterval = 1/electronFlowRate  #the number of seconds between each release of a new electron
@@ -217,7 +224,7 @@ def getSquaredDistance( x1, y1, x2, y2 ):
     return (x2 - x1)**2 + (y2-y1)**2
 
 
-#Updates the positions of each electron currently on screen using Coloumb's Law and Newtons laws.
+#Updates the positions of each electron currently on screen using Coloumb's Law and Newton's laws.
 def updateElectronPositions():
     global xElectron, yElectron, xElectronDir, yElectronDir, xElectronSpeed, yElectronSpeed
 
@@ -323,6 +330,26 @@ def drawCathodeAndAnode():
     anodeSignImage2 = screen.create_line(xAnode-anodeRadius/2, yAnode, xAnode+anodeRadius/2, yAnode, fill = greyScale, width = 3)
 
 
+def drawGrid():
+    global gridLines
+    
+    spacing = 50
+    for i in range(24):
+        x = i * 50
+        gridLines[i] = screen.create_line(x, 10, x, 1200, fill="white")
+
+    for i in range(24):
+        y = i * 50
+        gridLines[i+24] = screen.create_line(20, y, 1200, y, fill="white")
+        
+
+def deleteGrid():
+    global gridLines
+    
+    for i in range(50):
+        screen.delete(gridLines[i])
+
+
 #Deletes all images after each frame of the animation
 def deleteImages():
     screen.delete( deflectorChargeImage, deflectorSign1, deflectorSign2, cathodeImage, anodeImage, anodeSignImage1,  anodeSignImage2 )
@@ -351,8 +378,14 @@ def runGame():
 
     timeStart = time()
 
+    if showGrid == True:
+        drawGrid()
+
     while True:
-        updateElectronPositions()        
+        
+        if paused == False:
+            updateElectronPositions()
+     
         drawCathodeAndAnode()
         drawDeflector()
         drawElectrons()
@@ -365,34 +398,34 @@ def runGame():
         timeSinceLastElectronReleased = time() - timeStart
         
         if beamOn == True and len(xElectron) < 1000:  #if the electron flow rate is not 0 and there are fewer than 1000 electrons already on screen. 
-              if timeSinceLastElectronReleased >= releaseInterval :  #if enough time has passed since the last electron was released, release the next one
+              if timeSinceLastElectronReleased >= releaseInterval :  #if enough time has passed since the last electron was released, then release the next one
                     spawnNewElectron()
                     timeStart = time()  #reset the timer
 
 
-#Creates the slider bars and buttons when the program loads
+#Creates the labels, slider bars and buttons when the program loads
 def buildGUI():
-      global anodeChargeSlider, deflectorChargeSlider, electronFlowRateSlider, anodeSizeSlider
+      global anodeChargeSlider, deflectorChargeSlider, electronFlowRateSlider, anodeSizeSlider, pauseButton, showGridButton
       
       anodeChargeLabel = Label(root, text = "Anode charge", font = "fixedsys 15", foreground="yellow", background="slate grey")
       anodeChargeLabel.place( x = 10, y = 30)
       anodeChargeSlider = Scale( root, from_ = 0, to=50000, orient=HORIZONTAL, command = resetUserValues, length=150, width = 10, resolution = 1000  )
       anodeChargeSlider.pack()
-      anodeChargeSlider.place( x = 120, y = 30 )
+      anodeChargeSlider.place( x = 115, y = 30 )
       anodeChargeSlider.set( 20000 )
 
       deflectorChargeLabel = Label(root, text = "Deflector charge", font = "fixedsys 15", foreground="yellow", background="slate grey")
       deflectorChargeLabel.place( x = 10, y = 80)
       deflectorChargeSlider = Scale( root, from_ = -1000, to=1000, orient=HORIZONTAL, command = resetUserValues, length=150, width = 10, resolution = 50 )
       deflectorChargeSlider.pack()
-      deflectorChargeSlider.place( x = 138, y = 80)
+      deflectorChargeSlider.place( x = 150, y = 80)
       deflectorChargeSlider.set( -400) 
 
       electronFlowRateLabel = Label(root, text = "Electron flow rate", font = "fixedsys 15", foreground="yellow", background="slate grey")
       electronFlowRateLabel.place( x = 10, y = 130)
       electronFlowRateSlider = Scale( root, from_ = 0, to=20, orient=HORIZONTAL, command = resetUserValues, length=100, width=10  )
       electronFlowRateSlider.pack()
-      electronFlowRateSlider.place( x = 145, y = 130 )
+      electronFlowRateSlider.place( x = 165, y = 130 )
       electronFlowRateSlider.set( 5 )
 
       anodeSizeLabel = Label(root, text = "Anode size", font = "fixedsys 15", foreground="yellow", background="slate grey")
@@ -404,13 +437,52 @@ def buildGUI():
 
       clearElectronsButton = Button(root, text="Clear Electrons", command = clearElectronsButtonPressed)
       clearElectronsButton.pack()
-      clearElectronsButton.place( x = 10, y = 230, width = 110 )
+      clearElectronsButton.place( x = 10, y = 220, width = 110 )
+      
+      pauseButton = Button(root, text="Pause", command = pauseOrResumeButtonPressed)
+      pauseButton.pack()
+      pauseButton.place( x = 10, y = 260, width = 110 )
+
+      showGridButton = Button(root, text="Hide grid", command = gridButtonPressed)
+      showGridButton.pack()
+      showGridButton.place( x = 10, y = 300, width = 110 )
 
 
 #Called when the user clicks "Clear Electrons"
 def clearElectronsButtonPressed():
       deleteElectronImages()
       resetElectrons()
+
+
+#Called when the user clicks "Pause/Resume"
+def pauseOrResumeButtonPressed():
+    global paused
+
+    if paused == True:
+        paused = False
+        pauseButton.config(text="Pause")
+
+
+    else:
+        paused = True
+        pauseButton.config(text="Resume")
+
+
+#Called when the user clicks
+def gridButtonPressed():
+    global showGrid
+
+    if showGrid == True:
+        showGrid = False
+        deleteGrid()
+        showGridButton.config(text="Show grid")
+
+
+    else:
+        showGrid = True
+        drawGrid()
+        showGridButton.config(text="Hide grid")
+        
 
       
 #Starts the program.  It's the first procedure called when the program loads.
